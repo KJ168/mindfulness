@@ -5,7 +5,7 @@ const cors = require('cors');
 const routes = require('./routes/route'); 
 
 app.use(cors({
-  origin: "https://mindfulnessnlp.vercel.app", 
+  origin: "https://mindfulness-three.vercel.app", 
   credentials: true
 }));
 

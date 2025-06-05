@@ -4,6 +4,7 @@ import { Home, Menu, MessageSquare, Plus, Send, Smile, Trash2, User, XCircle } f
 import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react';
 import ReactMarkdown from 'react-markdown';
 import { sendToMindfulness } from '../api/chatbot';
+import FollowUpItem from './FollowUpItem';
 
 
 // Konstanta
@@ -562,33 +563,16 @@ const ChatbotPage = () => {
                             <div className="mt-3 pt-2 border-t border-gray-100">
                               <p className="text-xs text-gray-500 mb-2">Pertanyaan lanjutan:</p>
                               <ul className="space-y-1">
-                               {msg.followUps.map((q, i) => {
-                                const answer = Array.isArray(msg.follow_up_answers) && msg.follow_up_answers[i]
-                                ? msg.follow_up_answers[i]
-                                  : null;
-                                    const recommendation = Array.isArray(msg.recomended_responses_to_follow_up_answers) && msg.recomended_responses_to_follow_up_answers[i]
-                                      ? msg.recomended_responses_to_follow_up_answers[i]
-                                        : null;
-                                          const [isOpen, setIsOpen] = useState(false); // local expand state per item
-                                        return (
-                                                <li key={i} className="space-y-1">
-                                                <div className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 transition-colors"
-                                                onClick={() => {
-                                                                setIsOpen(prev => !prev);
-                                                               handleFollowUpClick(q, answer);
-                                                              }}
-                                                            >
-                                                            {q}
-                                                        </div>
-                                                    {recommendation && isOpen && (
-                                                  <div className="text-xs text-gray-500 italic mt-1 pl-2 border-l-2 border-blue-200">
-                                                {recommendation}
-                                               </div>
-                                              )}
-                                            </li>
-                                          );
-                                        })}
-
+                                
+                             {msg.followUps.map((q, i) => (
+  <FollowUpItem
+    key={i}
+    question={q}
+    answer={Array.isArray(msg.follow_up_answers) ? msg.follow_up_answers[i] : null}
+    recommendation={Array.isArray(msg.recomended_responses_to_follow_up_answers) ? msg.recomended_responses_to_follow_up_answers[i] : null}
+    onClick={handleFollowUpClick}
+  />
+))}
                               </ul>
                             </div>
                           )}

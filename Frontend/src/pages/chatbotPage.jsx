@@ -562,7 +562,7 @@ const ChatbotPage = () => {
                           {Array.isArray(msg.followUps) && msg.followUps.length > 0 && (
                             <div className="mt-3 pt-2 border-t border-gray-100">
                               
-                            // <p className="text-xs text-gray-500 mb-2">Pertanyaan lanjutan:</p>
+                           {/* <p className="text-xs text-gray-500 mb-2">Pertanyaan lanjutan:</p> */}
                               
                               <ul className="space-y-1">
                                 

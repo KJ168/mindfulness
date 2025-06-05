@@ -563,31 +563,31 @@ const ChatbotPage = () => {
                               <p className="text-xs text-gray-500 mb-2">Pertanyaan lanjutan:</p>
                               <ul className="space-y-1">
                                {msg.followUps.map((q, i) => {
-  const answer = Array.isArray(msg.follow_up_answers) && msg.follow_up_answers[i]
-    ? msg.follow_up_answers[i]
-    : null;
-
-  const recommendation = Array.isArray(msg.recomended_responses_to_follow_up_answers) && msg.recomended_responses_to_follow_up_answers[i]
-    ? msg.recomended_responses_to_follow_up_answers[i]
-    : null;
-
-  return (
-    <li key={i} className="space-y-1">
-      <div
-        className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 transition-colors"
-        onClick={() => handleFollowUpClick(q, answer)}
-      >
-        {q}
-      </div>
-      {recommendation && (
-        <div className="text-xs text-gray-500 italic mt-1 pl-2 border-l-2 border-blue-200">
-          {recommendation}
-        </div>
-      )}
-    </li>
-  );
-})}
-
+                                const answer = Array.isArray(msg.follow_up_answers) && msg.follow_up_answers[i]
+                                ? msg.follow_up_answers[i]
+                                  : null;
+                                    const recommendation = Array.isArray(msg.recomended_responses_to_follow_up_answers) && msg.recomended_responses_to_follow_up_answers[i]
+                                      ? msg.recomended_responses_to_follow_up_answers[i]
+                                        : null;
+                                          const [isOpen, setIsOpen] = useState(false); // local expand state per item
+                                        return (
+                                                <li key={i} className="space-y-1">
+                                                <div className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 transition-colors"
+                                                onClick={() => {
+                                                                setIsOpen(prev => !prev);
+                                                               handleFollowUpClick(q, answer);
+                                                              }}
+                                                            >
+                                                            {q}
+                                                        </div>
+                                                    {recommendation && isOpen && (
+                                                  <div className="text-xs text-gray-500 italic mt-1 pl-2 border-l-2 border-blue-200">
+                                                {recommendation}
+                                               </div>
+                                              )}
+                                            </li>
+                                          );
+                                        })}
 
                               </ul>
                             </div>

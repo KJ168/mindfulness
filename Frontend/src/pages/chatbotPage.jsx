@@ -4,7 +4,7 @@ import { Home, Menu, MessageSquare, Plus, Send, Smile, Trash2, User, XCircle } f
 import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react';
 import ReactMarkdown from 'react-markdown';
 import { sendToMindfulness } from '../api/chatbot';
-import { autoGenerateResponse } from '../api/autoGenerateResponse';
+
 
 // Konstanta
 const CHAT_SESSIONS_KEY = 'mindfulnessChatSessions';
@@ -224,27 +224,6 @@ const ChatbotPage = () => {
       return;
     }
 
-    // auto generate dari corpus
-    const autoResp = autoGenerateResponse(userMessageText);
-    if (autoResp) {
-      const botMessage = {
-        id: generateUniqueId('bot-auto'),
-        text: autoResp.text,
-        sender: "bot",
-        timestamp: new Date(),
-        followUps: autoResp.followUps,
-        follow_up_answers: autoResp.followUpAnswers
-      };
-      setChatSessions(prevSessions =>
-        prevSessions.map(session =>
-          session.id === activeSessionId
-            ? { ...session, messages: [...session.messages, botMessage], lastUpdated: new Date() }
-            : session
-        )
-      );
-      setIsBotTyping(false);
-      return;
-    }
 
     // kirim ke backend kalau hilang
     const controller = new AbortController();

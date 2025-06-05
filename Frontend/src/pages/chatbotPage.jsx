@@ -247,13 +247,17 @@ const ChatbotPage = () => {
       const [followUps, follow_up_answers] = fixFollowUp(followUpsRaw, followUpAnswersRaw);
 
       const botMessage = {
-        id: generateUniqueId('bot'),
-        text: topResult.response_to_display?.slice(0, MAX_RESPONSE_LENGTH) || "Maaf, belum ada jawaban yang cocok.",
-        sender: "bot",
-        timestamp: new Date(),
-        followUps,
-        follow_up_answers
-      };
+  id: generateUniqueId('bot'),
+  text: topResult.response_to_display?.slice(0, MAX_RESPONSE_LENGTH) || "Maaf, belum ada jawaban yang cocok.",
+  sender: "bot",
+  timestamp: new Date(),
+  followUps,
+  follow_up_answers,
+  recomended_responses_to_follow_up_answers: Array.isArray(topResult.recomended_responses_to_follow_up_answers)
+    ? topResult.recomended_responses_to_follow_up_answers
+    : []
+};
+
 
       setChatSessions(prevSessions =>
         prevSessions.map(session =>
@@ -558,20 +562,33 @@ const ChatbotPage = () => {
                             <div className="mt-3 pt-2 border-t border-gray-100">
                               <p className="text-xs text-gray-500 mb-2">Pertanyaan lanjutan:</p>
                               <ul className="space-y-1">
-                                {msg.followUps.map((q, i) => (
-                                  <li
-                                    key={i}
-                                    className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 transition-colors"
-                                    onClick={() => handleFollowUpClick(
-                                      q,
-                                      Array.isArray(msg.follow_up_answers) && msg.follow_up_answers[i]
-                                        ? msg.follow_up_answers[i]
-                                        : null
-                                    )}
-                                  >
-                                    {q}
-                                  </li>
-                                ))}
+                               {msg.followUps.map((q, i) => {
+  const answer = Array.isArray(msg.follow_up_answers) && msg.follow_up_answers[i]
+    ? msg.follow_up_answers[i]
+    : null;
+
+  const recommendation = Array.isArray(msg.recomended_responses_to_follow_up_answers) && msg.recomended_responses_to_follow_up_answers[i]
+    ? msg.recomended_responses_to_follow_up_answers[i]
+    : null;
+
+  return (
+    <li key={i} className="space-y-1">
+      <div
+        className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 transition-colors"
+        onClick={() => handleFollowUpClick(q, answer)}
+      >
+        {q}
+      </div>
+      {recommendation && (
+        <div className="text-xs text-gray-500 italic mt-1 pl-2 border-l-2 border-blue-200">
+          {recommendation}
+        </div>
+      )}
+    </li>
+  );
+})}
+
+
                               </ul>
                             </div>
                           )}

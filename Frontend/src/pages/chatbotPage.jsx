@@ -564,12 +564,12 @@ const ChatbotPage = () => {
                               <p className="text-xs text-gray-500 mb-2">Pertanyaan lanjutan:</p>
                               <ul className="space-y-1">
                                 
-                             {msg.followUps.map((q, i) => (
+                                {msg.follow_up_questions?.map((question, i) => (
   <FollowUpItem
     key={i}
-    question={q}
-    answer={Array.isArray(msg.follow_up_answers) ? msg.follow_up_answers[i] : null}
-    recommendation={Array.isArray(msg.recomended_responses_to_follow_up_answers) ? msg.recomended_responses_to_follow_up_answers[i] : null}
+    question={question}
+    answer={msg.follow_up_answers?.[i] || null}
+    recommendation={msg.recomended_responses_to_follow_up_answers?.[i] || null}
     onClick={handleFollowUpClick}
   />
 ))}

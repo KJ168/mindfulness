@@ -154,90 +154,126 @@ const ChatbotPage = () => {
     setIsBotTyping(false);
   };
 
-  const handleSendMessage = async () => {
-    const text = message.trim();
-    if (!text || !activeSessionId) return;
+  
 
-    const userMsg = {
-      id: generateUniqueId('user'),
-      text,
-      sender: "user",
-      timestamp: new Date()
+const handleSendMessage = async () => {
+  const text = message.trim();
+  if (!text || !activeSessionId) return;
+
+  const userMsg = {
+    id: generateUniqueId('user'),
+    text,
+    sender: "user",
+    timestamp: new Date()
+  };
+
+  setIsBotTyping(true);
+  setChatSessions(prev => prev.map(s => s.id === activeSessionId
+    ? { ...s, messages: [...s.messages, userMsg], lastUpdated: new Date() }
+    : s
+  ));
+  setMessage('');
+  setShowEmojiPicker(false);
+
+  // Check banned words
+  if ([...BANNED_WORDS].some(word => text.toLowerCase().includes(word))) {
+    const botMsg = {
+      id: generateUniqueId('bot-banned'),
+      text: "Maaf, saya tidak dapat membahas topik tersebut. Mari kita fokus pada hal-hal yang dapat membantu kesehatan mental kamu. Bagaimana perasaanmu hari ini?",
+      sender: "bot",
+      timestamp: new Date(),
+      followUps: ["Ceritakan tentang harimu", "Apa yang membuatmu bahagia?", "Bagaimana cara kamu mengatasi stres?"],
+      follow_up_answers: [
+        "Setiap hari, meskipun terasa berat, pasti ada satu hal kecil yang bisa kamu syukuri. Semangat ya, kamu tidak sendiri!",
+        "Hal membahagiakan bisa datang dari hal-hal sederhana. Semoga hari ini kamu menemukan kebahagiaan kecil yang berarti.",
+        "Mengatasi stres itu proses, dan kamu sudah hebat bisa melewatinya sejauh ini. Tetap jaga dirimu, kamu pasti bisa!"
+      ],
+      recommended_responses_to_follow_up_answers: []
     };
-
-    setIsBotTyping(true);
     setChatSessions(prev => prev.map(s => s.id === activeSessionId
-      ? { ...s, messages: [...s.messages, userMsg], lastUpdated: new Date() }
+      ? { ...s, messages: [...s.messages, botMsg], lastUpdated: new Date() }
       : s
     ));
-    setMessage('');
-    setShowEmojiPicker(false);
+    setIsBotTyping(false);
+    return;
+  }
 
-    if ([...BANNED_WORDS].some(word => text.toLowerCase().includes(word))) {
-      const botMsg = {
-        id: generateUniqueId('bot-banned'),
-        text: "Maaf, saya tidak dapat membahas topik tersebut. Mari kita fokus pada hal-hal yang dapat membantu kesehatan mental kamu. Bagaimana perasaanmu hari ini?",
-        sender: "bot",
-        timestamp: new Date(),
-        followUps: ["Ceritakan tentang harimu", "Apa yang membuatmu bahagia?", "Bagaimana cara kamu mengatasi stres?"],
-        follow_up_answers: [
-          "Setiap hari, meskipun terasa berat, pasti ada satu hal kecil yang bisa kamu syukuri. Semangat ya, kamu tidak sendiri!",
-          "Hal membahagiakan bisa datang dari hal-hal sederhana. Semoga hari ini kamu menemukan kebahagiaan kecil yang berarti.",
-          "Mengatasi stres itu proses, dan kamu sudah hebat bisa melewatinya sejauh ini. Tetap jaga dirimu, kamu pasti bisa!"
-        ],
-        recommended_responses_to_follow_up_answers: []
-      };
-      setChatSessions(prev => prev.map(s => s.id === activeSessionId
-        ? { ...s, messages: [...s.messages, botMsg], lastUpdated: new Date() }
-        : s
-      ));
-      setIsBotTyping(false);
-      return;
+  const controller = new AbortController();
+  setAbortController(controller);
+
+  try {
+    console.log(' Mengirim pesan:', text);
+    const data = await sendToMindfulness(text, { signal: controller.signal });
+    console.log('📨 Respons dari API:', data);
+
+    if (!data || !data.results || data.results.length === 0) {
+      throw new Error('Invalid API response structure');
     }
 
-    const controller = new AbortController();
-    setAbortController(controller);
+    const result = data.results[0];
+    console.log(' Result yang diproses:', result);
 
-    try {
-      const data = await sendToMindfulness(text, { signal: controller.signal });
-      const result = (data.results || [])[0] || {};
-      const botMsg = {
-        id: generateUniqueId('bot'),
-        text: result.response_to_display?.slice(0, MAX_RESPONSE_LENGTH) || "Maaf, belum ada jawaban yang cocok.",
-        sender: "bot",
-        timestamp: new Date(),
-        followUps: result.follow_up_questions || [],
-        follow_up_answers: result.follow_up_answers || [],
-        recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || []
-      };
-      setChatSessions(prev => prev.map(s => s.id === activeSessionId
-        ? { ...s, messages: [...s.messages, botMsg], lastUpdated: new Date() }
-        : s
-      ));
-    } catch (err) {
-      setChatSessions(prev => prev.map(s => s.id === activeSessionId
-        ? {
-          ...s,
-          messages: [...s.messages, {
-            id: generateUniqueId('error'),
-            text: err.name === 'AbortError'
-              ? "Jawaban dibatalkan."
-              : "Oops! Terjadi kesalahan saat menghubungi server. Silakan coba lagi.",
-            sender: "bot",
-            timestamp: new Date(),
-            followUps: [],
-            follow_up_answers: [],
-            recommended_responses_to_follow_up_answers: []
-          }],
-          lastUpdated: new Date()
-        }
-        : s
-      ));
-    } finally {
-      setIsBotTyping(false);
-      setAbortController(null);
+    // Validasi response
+    if (!result.response_to_display || result.response_to_display.trim() === '') {
+      throw new Error('Empty response from API');
     }
-  };
+
+    const botMsg = {
+      id: generateUniqueId('bot'),
+      text: result.response_to_display.slice(0, MAX_RESPONSE_LENGTH),
+      sender: "bot",
+      timestamp: new Date(),
+      followUps: result.follow_up_questions || [],
+      follow_up_answers: result.follow_up_answers || [],
+      recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || [],
+      confidence: result.confidence_score || 0,
+      intent: result.intent || ''
+    };
+
+    console.log('💬 Bot message yang akan ditampilkan:', botMsg);
+
+    setChatSessions(prev => prev.map(s => s.id === activeSessionId
+      ? { ...s, messages: [...s.messages, botMsg], lastUpdated: new Date() }
+      : s
+    ));
+
+  } catch (err) {
+    console.error(' Error dalam handleSendMessage:', err);
+    
+    let errorMessage = "Oops! Terjadi kesalahan saat menghubungi server. Silakan coba lagi.";
+    
+    if (err.name === 'AbortError') {
+      errorMessage = "Jawaban dibatalkan.";
+    } else if (err.message.includes('Failed to fetch')) {
+      errorMessage = "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.";
+    } else if (err.message.includes('Invalid API response')) {
+      errorMessage = "Server mengembalikan respons yang tidak valid. Silakan coba lagi.";
+    }
+
+    const errorBotMsg = {
+      id: generateUniqueId('error'),
+      text: errorMessage,
+      sender: "bot",
+      timestamp: new Date(),
+      followUps: ["Coba lagi", "Ceritakan dengan kata-kata lain", "Bagaimana perasaanmu sekarang?"],
+      follow_up_answers: [],
+      recommended_responses_to_follow_up_answers: []
+    };
+
+    setChatSessions(prev => prev.map(s => s.id === activeSessionId
+      ? { ...s, messages: [...s.messages, errorBotMsg], lastUpdated: new Date() }
+      : s
+    ));
+  } finally {
+    setIsBotTyping(false);
+    setAbortController(null);
+  }
+};
+
+// Tambahkan juga debug info di console untuk development
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 Debug mode aktif - pesan akan di-log ke console');
+}
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

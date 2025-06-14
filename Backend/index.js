@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express');
-const app = express();
+const serverless = require('serverless-http'); // tambahkan ini
 const cors = require('cors');
 const routes = require('./routes/route');
 
-//  CORS khusus untuk frontend Vercel + localhost dev
+const app = express();
+
 app.use(cors({
-  origin: ['https://mindfulness-three.vercel.app', 'http://localhost:5173'], // frontend production + local dev
+  origin: ['https://mindfulness-three.vercel.app', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
@@ -18,9 +19,12 @@ app.get('/', (req, res) => {
   res.send('Welcome to the API root! Actual endpoints are likely under /api');
 });
 
-// gunakan process.env.PORT biar cocok Railway
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}, API base path /api`);
-});
+// app.listen buat railway, render, dll
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}, API base path /api`);
+// });
 
+// Export untuk serverless
+module.exports = app;
+module.exports.handler = serverless(app);

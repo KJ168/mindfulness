@@ -44,6 +44,7 @@ class ChatErrorBoundary extends React.Component {
   }
 }
 
+// Typing Animation Component
 const TypingText = ({ text, speed = 50, onComplete }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -61,6 +62,7 @@ const TypingText = ({ text, speed = 50, onComplete }) => {
   }, [currentIndex, text, speed, onComplete]);
 
   useEffect(() => {
+    // Reset when text changes
     setDisplayedText('');
     setCurrentIndex(0);
   }, [text]);
@@ -140,8 +142,10 @@ const ChatbotPage = () => {
     navigate('/home');
   };
 
+  // Initialize chat sessions only once
   useEffect(() => {
     if (isInitialized) return;
+    
     const saved = localStorage.getItem(CHAT_SESSIONS_KEY);
     if (saved) {
       try {
@@ -161,18 +165,21 @@ const ChatbotPage = () => {
     setIsInitialized(true);
   }, [isInitialized, handleNewChat]);
 
+  // Save to localStorage when chatSessions change
   useEffect(() => {
     if (isInitialized && chatSessions.length > 0) {
       localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(chatSessions));
     }
   }, [chatSessions, isInitialized]);
 
+  // Auto scroll to bottom when new messages are added
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatSessions, isBotTyping]);
 
+  // Handle emoji picker outside clicks
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -200,7 +207,7 @@ const ChatbotPage = () => {
     setTypingMessageId(null);
     setChatSessions(prev => prev.map(session => ({
       ...session,
-      messages: session.messages.map(msg =>
+      messages: session.messages.map(msg => 
         msg.id === messageId ? { ...msg, isTyping: false } : msg
       )
     })));
@@ -225,6 +232,7 @@ const ChatbotPage = () => {
     setMessage('');
     setShowEmojiPicker(false);
 
+    // Check for banned words
     if ([...BANNED_WORDS].some(word => text.toLowerCase().includes(word))) {
       const botMsgId = generateUniqueId('bot-banned');
       const botMsg = {
@@ -232,7 +240,7 @@ const ChatbotPage = () => {
         text: "Maaf, saya tidak dapat membahas topik tersebut. Mari kita fokus pada hal-hal yang dapat membantu kesehatan mental kamu. Bagaimana perasaanmu hari ini?",
         sender: "bot",
         timestamp: new Date(),
-        followUps: [],
+        followUps: ["Ceritakan tentang harimu", "Apa yang membuatmu bahagia?", "Bagaimana cara kamu mengatasi stres?"],
         follow_up_answers: [],
         recommended_responses_to_follow_up_answers: [],
         isTyping: true
@@ -268,9 +276,9 @@ const ChatbotPage = () => {
         text: result.response_to_display.slice(0, MAX_RESPONSE_LENGTH),
         sender: "bot",
         timestamp: new Date(),
-        followUps: [],
-        follow_up_answers: [],
-        recommended_responses_to_follow_up_answers: [],
+        followUps: result.follow_up_questions || [],
+        follow_up_answers: result.follow_up_answers || [],
+        recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || [],
         confidence: result.confidence_score || 0,
         intent: result.intent || '',
         isTyping: true
@@ -289,7 +297,7 @@ const ChatbotPage = () => {
         text: "Oops! Terjadi kesalahan saat menghubungi server. Silakan coba lagi.",
         sender: "bot",
         timestamp: new Date(),
-        followUps: [],
+        followUps: ["Coba lagi", "Ceritakan dengan kata-kata lain", "Bagaimana perasaanmu sekarang?"],
         follow_up_answers: [],
         recommended_responses_to_follow_up_answers: [],
         isTyping: true
@@ -313,6 +321,7 @@ const ChatbotPage = () => {
   };
 
   const activeSession = chatSessions.find(s => s.id === activeSessionId);
+
   const formatTime = (date) =>
     new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 

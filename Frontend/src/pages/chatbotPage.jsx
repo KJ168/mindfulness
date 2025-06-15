@@ -44,28 +44,33 @@ class ChatErrorBoundary extends React.Component {
   }
 }
 
-// Typing Animation Component
+// Typing Animation Component - Fixed to prevent looping
 const TypingText = ({ text, speed = 50, onComplete }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    if (currentIndex < text.length) {
-      const timer = setTimeout(() => {
-        setDisplayedText(prev => prev + text[currentIndex]);
-        setCurrentIndex(prev => prev + 1);
-      }, speed);
-      return () => clearTimeout(timer);
-    } else if (onComplete) {
-      onComplete();
-    }
-  }, [currentIndex, text, speed, onComplete]);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
     // Reset when text changes
     setDisplayedText('');
     setCurrentIndex(0);
+    setIsCompleted(false);
   }, [text]);
+
+  useEffect(() => {
+    if (currentIndex < text.length && !isCompleted) {
+      const timer = setTimeout(() => {
+        setDisplayedText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, speed);
+      return () => clearTimeout(timer);
+    } else if (currentIndex >= text.length && !isCompleted) {
+      setIsCompleted(true);
+      if (onComplete) {
+        onComplete();
+      }
+    }
+  }, [currentIndex, text, speed, onComplete, isCompleted]);
 
   return (
     <ReactMarkdown className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -203,7 +208,7 @@ const ChatbotPage = () => {
     setIsBotTyping(false);
   };
 
-  const handleTypingComplete = (messageId) => {
+  const handleTypingComplete = useCallback((messageId) => {
     setTypingMessageId(null);
     setChatSessions(prev => prev.map(session => ({
       ...session,
@@ -211,7 +216,7 @@ const ChatbotPage = () => {
         msg.id === messageId ? { ...msg, isTyping: false } : msg
       )
     })));
-  };
+  }, []);
 
   const handleSendMessage = async (messageText = null) => {
     const text = (messageText || message).trim();
@@ -404,10 +409,8 @@ const ChatbotPage = () => {
               className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Home size={20} className="text-gray-600" />
-              <span className="text-sm text-gray-600">Home</span>
             </button>
-            <h1 className="text-lg font-semibold text-gray-800">Mindfulness</h1>
-            <div className="w-16"></div> {/* Spacer for centering */}
+            <div className="w-16"></div> 
           </div>
 
           {/* Messages */}
@@ -439,7 +442,7 @@ const ChatbotPage = () => {
                     )}
                   </div>
 
-                  {/* Follow-up Questions - Only show after typing is complete */}
+                  {/* Follow-up Questions - Tampilkan dan sembunyikan tombol kirim hanya setelah input selesai */}
                   {msg.followUps?.length > 0 && (!msg.isTyping || typingMessageId !== msg.id) && (
                     <div className="mt-3 space-y-2">
                       {msg.followUps.map((question, i) => (
@@ -454,7 +457,7 @@ const ChatbotPage = () => {
                           )}
                           
                           {msg.recommended_responses_to_follow_up_answers?.[i] && (
-                            <div className="flex items-start gap-2 mb-3">
+                            <div className="flex items-start gap-2">
                               <span className="text-sm">🔹</span>
                               <p className="text-xs text-blue-600 italic">
                                 {msg.recommended_responses_to_follow_up_answers[i]}
@@ -462,13 +465,7 @@ const ChatbotPage = () => {
                             </div>
                           )}
                           
-                          <button
-                            onClick={() => handleSendMessage(question)}
-                            className="text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
-                            disabled={isBotTyping}
-                          >
-                            Kirim pertanyaan ini
-                          </button>
+                          {/* Removed the "Kirim pertanyaan ini" */}
                         </div>
                       ))}
                     </div>

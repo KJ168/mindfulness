@@ -212,7 +212,57 @@ const ChatbotPage = () => {
     })));
   }, []);
 
-  // IMPROVED API HANDLING
+  // IMPROVED API response parsing function
+  const parseApiResponse = (data) => {
+    console.log('Raw API Response:', data);
+    
+    // Handle different possible response structures
+    let result = null;
+    
+    // Check if data has results array (your current API structure)
+    if (data && Array.isArray(data.results) && data.results.length > 0) {
+      result = data.results[0];
+      console.log('Using results[0] structure:', result);
+    }
+    // Check if data has result property
+    else if (data && data.result) {
+      result = data.result;
+      console.log('Using result structure:', result);
+    }
+    // Check if data is the result itself
+    else if (data && data.response_to_display) {
+      result = data;
+      console.log('Using direct data structure:', result);
+    }
+    // Fallback: check if data has the expected properties directly
+    else if (data && (data.confidence_score !== undefined || data.intent || data.follow_up_questions)) {
+      result = data;
+      console.log('Using fallback direct structure:', result);
+    }
+    
+    if (!result) {
+      console.error('Unable to parse API response structure:', data);
+      throw new Error('Invalid API response format');
+    }
+    
+    // Validate required fields
+    if (!result.response_to_display) {
+      console.error('Missing response_to_display in result:', result);
+      throw new Error('Empty or missing response from API');
+    }
+    
+    // Return normalized structure
+    return {
+      response_to_display: result.response_to_display.trim(),
+      follow_up_questions: result.follow_up_questions || [],
+      follow_up_answers: result.follow_up_answers || [],
+      recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || result.recommended_responses_to_follow_up_answers || [],
+      confidence_score: result.confidence_score || 0,
+      intent: result.intent || 'unknown'
+    };
+  };
+
+  // IMPROVED API HANDLING with better error handling
   const handleSendMessage = async (messageText = null) => {
     const text = (messageText || message).trim();
     if (!text || !activeSessionId) return;
@@ -260,45 +310,32 @@ const ChatbotPage = () => {
     try {
       console.log('Sending message to API:', text);
       
-      const data = await sendToMindfulness(text, { signal: controller.signal });
+      // Call API with proper parameters
+      const data = await sendToMindfulness(text, 3);
       
       console.log('API Response received:', data);
 
-      // BETTER ERROR HANDLING FOR API RESPONSE
-      if (!data) {
-        throw new Error('No response from API');
-      }
+      // Parse the response using improved parser
+      const parsedResult = parseApiResponse(data);
+      
+      console.log('Parsed result:', parsedResult);
 
-      // Handle different response structures
-      let result;
-      if (data.results && Array.isArray(data.results) && data.results.length > 0) {
-        result = data.results[0];
-      } else if (data.result) {
-        result = data.result;
-      } else if (data.response_to_display) {
-        result = data;
-      } else {
-        console.error('Unexpected API response structure:', data);
-        throw new Error('Invalid API response structure');
-      }
-
-      console.log('Processed result:', result);
-
-      if (!result.response_to_display || result.response_to_display.trim() === '') {
+      // Validate response content
+      if (!parsedResult.response_to_display || parsedResult.response_to_display.trim() === '') {
         throw new Error('Empty response from API');
       }
 
       const botMsgId = generateUniqueId('bot');
       const botMsg = {
         id: botMsgId,
-        text: result.response_to_display.slice(0, MAX_RESPONSE_LENGTH),
+        text: parsedResult.response_to_display.slice(0, MAX_RESPONSE_LENGTH),
         sender: "bot",
         timestamp: new Date(),
-        followUps: result.follow_up_questions || [],
-        follow_up_answers: result.follow_up_answers || [],
-        recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || result.recommended_responses_to_follow_up_answers || [],
-        confidence: result.confidence_score || 0,
-        intent: result.intent || '',
+        followUps: parsedResult.follow_up_questions || [],
+        follow_up_answers: parsedResult.follow_up_answers || [],
+        recommended_responses_to_follow_up_answers: parsedResult.recommended_responses_to_follow_up_answers || [],
+        confidence: parsedResult.confidence_score || 0,
+        intent: parsedResult.intent || '',
         isTyping: true
       };
 
@@ -313,10 +350,23 @@ const ChatbotPage = () => {
     } catch (err) {
       console.error('API Error:', err);
       
+      // Create user-friendly error messages
+      let errorMessage = "Oops! Terjadi kesalahan saat menghubungi server.";
+      
+      if (err.message.includes('Network error')) {
+        errorMessage = "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.";
+      } else if (err.message.includes('timeout')) {
+        errorMessage = "Server membutuhkan waktu terlalu lama untuk merespons. Silakan coba lagi.";
+      } else if (err.message.includes('500')) {
+        errorMessage = "Server sedang mengalami masalah. Silakan coba lagi dalam beberapa saat.";
+      } else if (err.message.includes('400')) {
+        errorMessage = "Format pesan tidak valid. Silakan coba dengan kata-kata yang berbeda.";
+      }
+      
       const errorBotMsgId = generateUniqueId('error');
       const errorBotMsg = {
         id: errorBotMsgId,
-        text: `Oops! Terjadi kesalahan saat menghubungi server. ${err.message}. Silakan coba lagi.`,
+        text: `${errorMessage} Silakan coba lagi.`,
         sender: "bot",
         timestamp: new Date(),
         followUps: ["Coba lagi", "Ceritakan dengan kata-kata lain", "Bagaimana perasaanmu sekarang?"],

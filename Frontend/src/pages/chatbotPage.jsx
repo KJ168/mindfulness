@@ -212,55 +212,54 @@ const ChatbotPage = () => {
     })));
   }, []);
 
-  // IMPROVED API response parsing function
-  const parseApiResponse = (data) => {
-    console.log('Raw API Response:', data);
-    
-    // Handle different possible response structures
-    let result = null;
-    
-    // Check if data has results array (your current API structure)
-    if (data && Array.isArray(data.results) && data.results.length > 0) {
-      result = data.results[0];
-      console.log('Using results[0] structure:', result);
-    }
-    // Check if data has result property
-    else if (data && data.result) {
-      result = data.result;
-      console.log('Using result structure:', result);
-    }
-    // Check if data is the result itself
-    else if (data && data.response_to_display) {
-      result = data;
-      console.log('Using direct data structure:', result);
-    }
-    // Fallback: check if data has the expected properties directly
-    else if (data && (data.confidence_score !== undefined || data.intent || data.follow_up_questions)) {
-      result = data;
-      console.log('Using fallback direct structure:', result);
-    }
-    
-    if (!result) {
-      console.error('Unable to parse API response structure:', data);
-      throw new Error('Invalid API response format');
-    }
-    
-    // Validate required fields
-    if (!result.response_to_display) {
-      console.error('Missing response_to_display in result:', result);
-      throw new Error('Empty or missing response from API');
-    }
-    
-    // Return normalized structure
-    return {
-      response_to_display: result.response_to_display.trim(),
-      follow_up_questions: result.follow_up_questions || [],
-      follow_up_answers: result.follow_up_answers || [],
-      recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || result.recommended_responses_to_follow_up_answers || [],
-      confidence_score: result.confidence_score || 0,
-      intent: result.intent || 'unknown'
-    };
+  // Parse api response
+  const parseApiResponse = (apiResponse) => {
+  console.log('Raw API Response:', apiResponse);
+
+  // Jika response dari backend (ada .success dan .data)
+  if (apiResponse && apiResponse.success && apiResponse.data) {
+    // Data dari backend Mindfulness, masuk ke dalam .data
+    return parseApiResponse(apiResponse.data);
+  }
+
+  // Struktur Python service (langsung object jawaban)
+  let result = null;
+
+  // Cek jika array results
+  if (Array.isArray(apiResponse.results) && apiResponse.results.length > 0) {
+    result = apiResponse.results[0];
+  } else if (apiResponse.result) {
+    result = apiResponse.result;
+  } else if (apiResponse.response_to_display) {
+    result = apiResponse;
+  } else if (
+    apiResponse &&
+    (apiResponse.confidence_score !== undefined ||
+      apiResponse.intent ||
+      apiResponse.follow_up_questions)
+  ) {
+    result = apiResponse;
+  }
+
+  if (!result) {
+    console.error('Unable to parse API response structure:', apiResponse);
+    throw new Error('Invalid API response format');
+  }
+
+  if (!result.response_to_display) {
+    console.error('Missing response_to_display in result:', result);
+    throw new Error('Empty or missing response from API');
+  }
+
+  return {
+    response_to_display: result.response_to_display.trim(),
+    follow_up_questions: result.follow_up_questions || [],
+    follow_up_answers: result.follow_up_answers || [],
+    recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || result.recommended_responses_to_follow_up_answers || [],
+    confidence_score: result.confidence_score || 0,
+    intent: result.intent || 'unknown'
   };
+};
 
   // IMPROVED API HANDLING with better error handling
   const handleSendMessage = async (messageText = null) => {

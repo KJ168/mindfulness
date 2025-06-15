@@ -44,7 +44,6 @@ class ChatErrorBoundary extends React.Component {
   }
 }
 
-// Typing Animation Component
 const TypingText = ({ text, speed = 50, onComplete }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -62,7 +61,6 @@ const TypingText = ({ text, speed = 50, onComplete }) => {
   }, [currentIndex, text, speed, onComplete]);
 
   useEffect(() => {
-    // Reset when text changes
     setDisplayedText('');
     setCurrentIndex(0);
   }, [text]);
@@ -100,9 +98,6 @@ const ChatbotPage = () => {
       text: "Halo! Saya Mindfulness, asisten AI kamu untuk mendengarkan dan membantu dalam hal kesehatan mental. Ceritakan perasaanmu atau masalahmu, aku akan berusaha membantumu.",
       sender: "bot",
       timestamp: new Date(),
-      followUps: [],
-      follow_up_answers: [],
-      recommended_responses_to_follow_up_answers: [],
       isTyping: true
     };
     const newSession = {
@@ -142,10 +137,8 @@ const ChatbotPage = () => {
     navigate('/home');
   };
 
-  // Initialize chat sessions only once
   useEffect(() => {
     if (isInitialized) return;
-    
     const saved = localStorage.getItem(CHAT_SESSIONS_KEY);
     if (saved) {
       try {
@@ -165,21 +158,18 @@ const ChatbotPage = () => {
     setIsInitialized(true);
   }, [isInitialized, handleNewChat]);
 
-  // Save to localStorage when chatSessions change
   useEffect(() => {
     if (isInitialized && chatSessions.length > 0) {
       localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(chatSessions));
     }
   }, [chatSessions, isInitialized]);
 
-  // Auto scroll to bottom when new messages are added
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatSessions, isBotTyping]);
 
-  // Handle emoji picker outside clicks
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -207,7 +197,7 @@ const ChatbotPage = () => {
     setTypingMessageId(null);
     setChatSessions(prev => prev.map(session => ({
       ...session,
-      messages: session.messages.map(msg => 
+      messages: session.messages.map(msg =>
         msg.id === messageId ? { ...msg, isTyping: false } : msg
       )
     })));
@@ -232,7 +222,6 @@ const ChatbotPage = () => {
     setMessage('');
     setShowEmojiPicker(false);
 
-    // Check for banned words
     if ([...BANNED_WORDS].some(word => text.toLowerCase().includes(word))) {
       const botMsgId = generateUniqueId('bot-banned');
       const botMsg = {
@@ -240,9 +229,6 @@ const ChatbotPage = () => {
         text: "Maaf, saya tidak dapat membahas topik tersebut. Mari kita fokus pada hal-hal yang dapat membantu kesehatan mental kamu. Bagaimana perasaanmu hari ini?",
         sender: "bot",
         timestamp: new Date(),
-        followUps: ["Ceritakan tentang harimu", "Apa yang membuatmu bahagia?", "Bagaimana cara kamu mengatasi stres?"],
-        follow_up_answers: [],
-        recommended_responses_to_follow_up_answers: [],
         isTyping: true
       };
       setChatSessions(prev => prev.map(s => s.id === activeSessionId
@@ -276,11 +262,6 @@ const ChatbotPage = () => {
         text: result.response_to_display.slice(0, MAX_RESPONSE_LENGTH),
         sender: "bot",
         timestamp: new Date(),
-        followUps: result.follow_up_questions || [],
-        follow_up_answers: result.follow_up_answers || [],
-        recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || [],
-        confidence: result.confidence_score || 0,
-        intent: result.intent || '',
         isTyping: true
       };
 
@@ -297,9 +278,6 @@ const ChatbotPage = () => {
         text: "Oops! Terjadi kesalahan saat menghubungi server. Silakan coba lagi.",
         sender: "bot",
         timestamp: new Date(),
-        followUps: ["Coba lagi", "Ceritakan dengan kata-kata lain", "Bagaimana perasaanmu sekarang?"],
-        follow_up_answers: [],
-        recommended_responses_to_follow_up_answers: [],
         isTyping: true
       };
       setChatSessions(prev => prev.map(s => s.id === activeSessionId
@@ -339,9 +317,7 @@ const ChatbotPage = () => {
   return (
     <ChatErrorBoundary>
       <div className="flex h-screen bg-gray-50">
-        {/* Sidebar */}
         <div className={`${sidebarOpen ? 'w-80' : 'w-16'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300`}>
-          {/* Header */}
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -349,10 +325,8 @@ const ChatbotPage = () => {
             >
               <Menu size={20} />
             </button>
-            {sidebarOpen && <h1 className="text-lg font-semibold text-gray-800">Mindfulness</h1>}
           </div>
 
-          {/* New Chat Button */}
           <div className="p-4">
             <button
               onClick={handleNewChat}
@@ -363,7 +337,6 @@ const ChatbotPage = () => {
             </button>
           </div>
 
-          {/* Chat History */}
           <div className="flex-1 overflow-y-auto px-4">
             {sidebarOpen && (
               <div className="space-y-2">
@@ -395,10 +368,8 @@ const ChatbotPage = () => {
           </div>
         </div>
 
-        {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+          <div className="bg-white border-b border-gray-200 p-4 flex items-center">
             <button
               onClick={handleHomeClick}
               className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -406,30 +377,27 @@ const ChatbotPage = () => {
               <Home size={20} className="text-gray-600" />
               <span className="text-sm text-gray-600">Home</span>
             </button>
-            <h1 className="text-lg font-semibold text-gray-800">Mindfulness</h1>
-            <div className="w-16"></div> {/* Spacer for centering */}
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {activeSession?.messages.map((msg, index) => (
+            {activeSession?.messages.map((msg) => (
               <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.sender === 'bot' && (
                   <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     M
                   </div>
                 )}
-                
+
                 <div className={`max-w-2xl ${msg.sender === 'user' ? 'order-first' : ''}`}>
                   <div className={`rounded-2xl px-4 py-3 ${
-                    msg.sender === 'user' 
-                      ? 'bg-blue-500 text-white ml-auto' 
+                    msg.sender === 'user'
+                      ? 'bg-blue-500 text-white ml-auto'
                       : 'bg-white border border-gray-200'
                   }`}>
                     {msg.sender === 'bot' && msg.isTyping && typingMessageId === msg.id ? (
-                      <TypingText 
-                        text={msg.text} 
-                        speed={30} 
+                      <TypingText
+                        text={msg.text}
+                        speed={30}
                         onComplete={() => handleTypingComplete(msg.id)}
                       />
                     ) : (
@@ -438,41 +406,6 @@ const ChatbotPage = () => {
                       </ReactMarkdown>
                     )}
                   </div>
-
-                  {/* Follow-up Questions - Only show after typing is complete */}
-                  {msg.followUps?.length > 0 && (!msg.isTyping || typingMessageId !== msg.id) && (
-                    <div className="mt-3 space-y-2">
-                      {msg.followUps.map((question, i) => (
-                        <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                          <p className="text-sm font-medium text-gray-800 mb-2">{question}</p>
-                          
-                          {msg.follow_up_answers?.[i] && (
-                            <div className="flex items-start gap-2 mb-2">
-                              <span className="text-sm">💬</span>
-                              <p className="text-sm text-gray-600">{msg.follow_up_answers[i]}</p>
-                            </div>
-                          )}
-                          
-                          {msg.recommended_responses_to_follow_up_answers?.[i] && (
-                            <div className="flex items-start gap-2 mb-3">
-                              <span className="text-sm">🔹</span>
-                              <p className="text-xs text-blue-600 italic">
-                                {msg.recommended_responses_to_follow_up_answers[i]}
-                              </p>
-                            </div>
-                          )}
-                          
-                          <button
-                            onClick={() => handleSendMessage(question)}
-                            className="text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
-                            disabled={isBotTyping}
-                          >
-                            Kirim pertanyaan ini
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
                   <div className="text-xs text-gray-400 mt-2 text-right">
                     {formatTime(msg.timestamp)}
@@ -494,8 +427,8 @@ const ChatbotPage = () => {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-500 italic">
                   <span>Mindfulness sedang mengetik...</span>
-                  <button 
-                    onClick={cancelTyping} 
+                  <button
+                    onClick={cancelTyping}
                     className="text-red-400 hover:text-red-600 transition-colors"
                   >
                     <XCircle size={16} />
@@ -506,7 +439,6 @@ const ChatbotPage = () => {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Input Area */}
           <div className="bg-white border-t border-gray-200 p-4">
             <div className="flex items-center gap-3 bg-gray-50 rounded-full px-4 py-2 border border-gray-200">
               <input
@@ -518,7 +450,7 @@ const ChatbotPage = () => {
                 onKeyPress={handleKeyPress}
                 disabled={isBotTyping}
               />
-              
+
               <button
                 ref={emojiPickerButtonRef}
                 onClick={() => setShowEmojiPicker(prev => !prev)}
@@ -527,7 +459,7 @@ const ChatbotPage = () => {
               >
                 <Smile size={20} />
               </button>
-              
+
               <button
                 onClick={() => handleSendMessage()}
                 disabled={!message.trim() || isBotTyping}
@@ -537,10 +469,9 @@ const ChatbotPage = () => {
               </button>
             </div>
 
-            {/* Emoji Picker */}
             {showEmojiPicker && (
-              <div 
-                ref={emojiPickerPopupRef} 
+              <div
+                ref={emojiPickerPopupRef}
                 className="absolute bottom-20 right-4 z-50 shadow-lg rounded-lg"
               >
                 <EmojiPicker
@@ -564,3 +495,4 @@ const ChatbotPage = () => {
 };
 
 export default ChatbotPage;
+

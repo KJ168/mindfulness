@@ -104,13 +104,20 @@ const ChatbotPage = () => {
     }
   };
 
+  // Initialize chat sessions only once
   useEffect(() => {
+    if (isInitialized) return;
+    
     const saved = localStorage.getItem(CHAT_SESSIONS_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setChatSessions(parsed);
-        setActiveSessionId(parsed[0]?.id || null);
+        if (parsed && parsed.length > 0) {
+          setChatSessions(parsed);
+          setActiveSessionId(parsed[0]?.id || null);
+        } else {
+          handleNewChat();
+        }
       } catch {
         handleNewChat();
       }
@@ -118,18 +125,23 @@ const ChatbotPage = () => {
       handleNewChat();
     }
     setIsInitialized(true);
-  }, [handleNewChat]);
+  }, [isInitialized, handleNewChat]);
 
+  // Save to localStorage mmm chatSessions change
   useEffect(() => {
-    if (chatSessions.length > 0) {
+    if (isInitialized && chatSessions.length > 0) {
       localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(chatSessions));
     }
-  }, [chatSessions]);
+  }, [chatSessions, isInitialized]);
 
+  // Auto scroll to bottom wmm new messages are added
   useEffect(() => {
-    if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [chatSessions]);
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatSessions, isBotTyping]);
 
+  // Handle emoji picker outside clicks
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -153,8 +165,8 @@ const ChatbotPage = () => {
     setIsBotTyping(false);
   };
 
-  const handleSendMessage = async (isFollowUp = false) => {
-    const text = message.trim();
+  const handleSendMessage = async (messageText = null) => {
+    const text = (messageText || message).trim();
     if (!text || !activeSessionId) return;
 
     const userMsg = {
@@ -172,6 +184,7 @@ const ChatbotPage = () => {
     setMessage('');
     setShowEmojiPicker(false);
 
+    // Check for banned words
     if ([...BANNED_WORDS].some(word => text.toLowerCase().includes(word))) {
       const botMsg = {
         id: generateUniqueId('bot-banned'),
@@ -270,80 +283,202 @@ const ChatbotPage = () => {
     <ChatErrorBoundary>
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar */}
-        {/* ... (sama seperti sebelumnya) */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto p-4 bg-gray-100">
-            {activeSession?.messages.map((msg) => (
-              <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`flex items-start max-w-3xl ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-8 h-8 flex items-center justify-center rounded-full ${msg.sender === 'user' ? 'bg-blue-500' : 'bg-purple-500'} text-white`}>
-                    {msg.sender === 'user' ? <User size={16} /> : <span className="font-bold">M</span>}
+        <div className={`${sidebarOpen ? 'w-80' : 'w-16'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300`}>
+          {/* Header */}
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <Menu size={20} />
+            </button>
+            {sidebarOpen && <h1 className="text-lg font-semibold text-gray-800">Mindfulness</h1>}
+          </div>
+
+          {/* New Chat Button */}
+          <div className="p-4">
+            <button
+              onClick={handleNewChat}
+              className={`w-full flex items-center gap-3 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors ${!sidebarOpen ? 'justify-center' : ''}`}
+            >
+              <Plus size={20} />
+              {sidebarOpen && <span>New Chat</span>}
+            </button>
+          </div>
+
+          {/* Chat History */}
+          <div className="flex-1 overflow-y-auto px-4">
+            {sidebarOpen && (
+              <div className="space-y-2">
+                <h2 className="text-sm font-medium text-gray-500 mb-3">History Chat</h2>
+                {chatSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    onClick={() => handleSelectSession(session.id)}
+                    className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                      activeSessionId === session.id
+                        ? 'bg-blue-50 border border-blue-200'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <MessageSquare size={16} className="text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 truncate">{session.name}</span>
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteSession(session.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
+                    >
+                      <Trash2 size={14} className="text-red-500" />
+                    </button>
                   </div>
-                  <div className={`rounded-xl p-3 shadow-sm ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-white border'}`}>
-                    <ReactMarkdown className="whitespace-pre-wrap">{msg.text}</ReactMarkdown>
-                    {msg.followUps?.length > 0 && (
-                      <ul className="mt-2 space-y-2">
-                        {msg.followUps.map((q, i) => (
-                          <li key={i} className="p-2 border rounded-lg bg-gray-50">
-                            <p className="font-medium text-gray-700">{q}</p>
-                            {msg.follow_up_answers?.[i] && (
-                              <p className="text-sm text-gray-600 mt-1">💬 {msg.follow_up_answers[i]}</p>
-                            )}
-                            {msg.recommended_responses_to_follow_up_answers?.[i] && (
-                              <p className="text-xs text-blue-600 mt-1 italic">🔹 {msg.recommended_responses_to_follow_up_answers[i]}</p>
-                            )}
-                            <button
-                              onClick={async () => {
-                                setMessage(q);
-                                await handleSendMessage(true);
-                              }}
-                              className="text-xs text-blue-500 mt-1 hover:underline"
-                            >
-                              Kirim pertanyaan ini
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200 p-4">
+            <h1 className="text-lg font-semibold text-gray-800">Mindfulness</h1>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {activeSession?.messages.map((msg, index) => (
+              <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.sender === 'bot' && (
+                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    M
+                  </div>
+                )}
+                
+                <div className={`max-w-2xl ${msg.sender === 'user' ? 'order-first' : ''}`}>
+                  <div className={`rounded-2xl px-4 py-3 ${
+                    msg.sender === 'user' 
+                      ? 'bg-blue-500 text-white ml-auto' 
+                      : 'bg-white border border-gray-200'
+                  }`}>
+                    <ReactMarkdown className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {msg.text}
+                    </ReactMarkdown>
+                  </div>
+
+                  {/* Follow-up Questions */}
+                  {msg.followUps?.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {msg.followUps.map((question, i) => (
+                        <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                          <p className="text-sm font-medium text-gray-800 mb-2">{question}</p>
+                          
+                          {msg.follow_up_answers?.[i] && (
+                            <div className="flex items-start gap-2 mb-2">
+                              <span className="text-sm">💬</span>
+                              <p className="text-sm text-gray-600">{msg.follow_up_answers[i]}</p>
+                            </div>
+                          )}
+                          
+                          {msg.recommended_responses_to_follow_up_answers?.[i] && (
+                            <div className="flex items-start gap-2 mb-3">
+                              <span className="text-sm">🔹</span>
+                              <p className="text-xs text-blue-600 italic">
+                                {msg.recommended_responses_to_follow_up_answers[i]}
+                              </p>
+                            </div>
+                          )}
+                          
+                          <button
+                            onClick={() => handleSendMessage(question)}
+                            className="text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
+                            disabled={isBotTyping}
+                          >
+                            Kirim pertanyaan ini
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-xs text-gray-400 mt-2 text-right">
+                    {formatTime(msg.timestamp)}
                   </div>
                 </div>
-                <span className="text-xs text-gray-400 mt-1">{formatTime(msg.timestamp)}</span>
+
+                {msg.sender === 'user' && (
+                  <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white flex-shrink-0">
+                    <User size={16} />
+                  </div>
+                )}
               </div>
             ))}
+
             {isBotTyping && (
-              <div className="flex items-center text-sm text-gray-500 italic mt-2">
-                <span>Mindfulness sedang mengetik...</span>
-                <button onClick={cancelTyping} className="ml-2 text-red-400 hover:text-red-600"><XCircle size={18} /></button>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  M
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-500 italic">
+                  <span>Mindfulness sedang mengetik...</span>
+                  <button 
+                    onClick={cancelTyping} 
+                    className="text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <XCircle size={16} />
+                  </button>
+                </div>
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
 
-          {/* Input bar */}
-          <div className="p-4 bg-white border-t">
-            <div className="flex items-center border rounded-full px-2">
+          {/* Input Area */}
+          <div className="bg-white border-t border-gray-200 p-4">
+            <div className="flex items-center gap-3 bg-gray-50 rounded-full px-4 py-2 border border-gray-200">
               <input
-                className="flex-1 p-2 text-sm"
+                type="text"
+                className="flex-1 bg-transparent text-sm placeholder-gray-500 outline-none"
                 placeholder="Ceritakan perasaanmu..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={isBotTyping}
               />
-              <button ref={emojiPickerButtonRef} onClick={() => setShowEmojiPicker(prev => !prev)} className="p-2">
-                <Smile size={18} />
+              
+              <button
+                ref={emojiPickerButtonRef}
+                onClick={() => setShowEmojiPicker(prev => !prev)}
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={isBotTyping}
+              >
+                <Smile size={20} />
               </button>
-              <button onClick={handleSendMessage} disabled={!message.trim() || isBotTyping} className="p-2 bg-blue-500 text-white rounded-full">
-                <Send size={18} />
+              
+              <button
+                onClick={() => handleSendMessage()}
+                disabled={!message.trim() || isBotTyping}
+                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send size={16} />
               </button>
             </div>
+
+            {/* Emoji Picker */}
             {showEmojiPicker && (
-              <div ref={emojiPickerPopupRef} className="absolute bottom-16 right-4 z-50">
+              <div 
+                ref={emojiPickerPopupRef} 
+                className="absolute bottom-20 right-4 z-50 shadow-lg rounded-lg"
+              >
                 <EmojiPicker
-                  onEmojiClick={(emojiData) => setMessage(prev => prev + emojiData.emoji)}
+                  onEmojiClick={(emojiData) => {
+                    setMessage(prev => prev + emojiData.emoji);
+                    setShowEmojiPicker(false);
+                  }}
                   emojiStyle={EmojiStyle.NATIVE}
                   theme={Theme.LIGHT}
                   height={350}
+                  width={320}
                   lazyLoadEmojis
                 />
               </div>

@@ -568,5 +568,3 @@ const ChatbotPage = () => {
 };
 
 export default ChatbotPage;
-
-export default ChatbotPage;

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, MessageSquare, Plus, Send, Smile, Trash2, User, XCircle } from 'lucide-react';
+import { Menu, MessageSquare, Plus, Send, Smile, Trash2, User, XCircle, Home } from 'lucide-react';
 import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react';
 import ReactMarkdown from 'react-markdown';
 import { sendToMindfulness } from '../api/chatbot';
@@ -44,6 +44,36 @@ class ChatErrorBoundary extends React.Component {
   }
 }
 
+// Typing Animation Component
+const TypingText = ({ text, speed = 50, onComplete }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timer = setTimeout(() => {
+        setDisplayedText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, speed);
+      return () => clearTimeout(timer);
+    } else if (onComplete) {
+      onComplete();
+    }
+  }, [currentIndex, text, speed, onComplete]);
+
+  useEffect(() => {
+    // Reset when text changes
+    setDisplayedText('');
+    setCurrentIndex(0);
+  }, [text]);
+
+  return (
+    <ReactMarkdown className="text-sm leading-relaxed whitespace-pre-wrap">
+      {displayedText}
+    </ReactMarkdown>
+  );
+};
+
 const ChatbotPage = () => {
   const [message, setMessage] = useState('');
   const [chatSessions, setChatSessions] = useState([]);
@@ -53,6 +83,7 @@ const ChatbotPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [abortController, setAbortController] = useState(null);
+  const [typingMessageId, setTypingMessageId] = useState(null);
 
   const chatEndRef = useRef(null);
   const emojiPickerButtonRef = useRef(null);
@@ -71,7 +102,8 @@ const ChatbotPage = () => {
       timestamp: new Date(),
       followUps: [],
       follow_up_answers: [],
-      recommended_responses_to_follow_up_answers: []
+      recommended_responses_to_follow_up_answers: [],
+      isTyping: true
     };
     const newSession = {
       id: newSessionId,
@@ -81,6 +113,7 @@ const ChatbotPage = () => {
     };
     setChatSessions([newSession]);
     setActiveSessionId(newSessionId);
+    setTypingMessageId(initialBotMessage.id);
     setMessage('');
     setShowEmojiPicker(false);
   }, []);
@@ -89,6 +122,7 @@ const ChatbotPage = () => {
     setActiveSessionId(sessionId);
     setMessage('');
     setShowEmojiPicker(false);
+    setTypingMessageId(null);
   };
 
   const handleDeleteSession = (sessionIdToDelete, event) => {
@@ -102,6 +136,10 @@ const ChatbotPage = () => {
         handleNewChat();
       }
     }
+  };
+
+  const handleHomeClick = () => {
+    navigate('/home');
   };
 
   // Initialize chat sessions only once
@@ -127,14 +165,14 @@ const ChatbotPage = () => {
     setIsInitialized(true);
   }, [isInitialized, handleNewChat]);
 
-  // Save to localStorage mmm chatSessions change
+  // Save to localStorage when chatSessions change
   useEffect(() => {
     if (isInitialized && chatSessions.length > 0) {
       localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(chatSessions));
     }
   }, [chatSessions, isInitialized]);
 
-  // Auto scroll to bottom wmm new messages are added
+  // Auto scroll to bottom when new messages are added
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -165,6 +203,16 @@ const ChatbotPage = () => {
     setIsBotTyping(false);
   };
 
+  const handleTypingComplete = (messageId) => {
+    setTypingMessageId(null);
+    setChatSessions(prev => prev.map(session => ({
+      ...session,
+      messages: session.messages.map(msg => 
+        msg.id === messageId ? { ...msg, isTyping: false } : msg
+      )
+    })));
+  };
+
   const handleSendMessage = async (messageText = null) => {
     const text = (messageText || message).trim();
     if (!text || !activeSessionId) return;
@@ -186,19 +234,22 @@ const ChatbotPage = () => {
 
     // Check for banned words
     if ([...BANNED_WORDS].some(word => text.toLowerCase().includes(word))) {
+      const botMsgId = generateUniqueId('bot-banned');
       const botMsg = {
-        id: generateUniqueId('bot-banned'),
+        id: botMsgId,
         text: "Maaf, saya tidak dapat membahas topik tersebut. Mari kita fokus pada hal-hal yang dapat membantu kesehatan mental kamu. Bagaimana perasaanmu hari ini?",
         sender: "bot",
         timestamp: new Date(),
         followUps: ["Ceritakan tentang harimu", "Apa yang membuatmu bahagia?", "Bagaimana cara kamu mengatasi stres?"],
         follow_up_answers: [],
-        recommended_responses_to_follow_up_answers: []
+        recommended_responses_to_follow_up_answers: [],
+        isTyping: true
       };
       setChatSessions(prev => prev.map(s => s.id === activeSessionId
         ? { ...s, messages: [...s.messages, botMsg], lastUpdated: new Date() }
         : s
       ));
+      setTypingMessageId(botMsgId);
       setIsBotTyping(false);
       return;
     }
@@ -219,8 +270,9 @@ const ChatbotPage = () => {
         throw new Error('Empty response from API');
       }
 
+      const botMsgId = generateUniqueId('bot');
       const botMsg = {
-        id: generateUniqueId('bot'),
+        id: botMsgId,
         text: result.response_to_display.slice(0, MAX_RESPONSE_LENGTH),
         sender: "bot",
         timestamp: new Date(),
@@ -228,28 +280,33 @@ const ChatbotPage = () => {
         follow_up_answers: result.follow_up_answers || [],
         recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || [],
         confidence: result.confidence_score || 0,
-        intent: result.intent || ''
+        intent: result.intent || '',
+        isTyping: true
       };
 
       setChatSessions(prev => prev.map(s => s.id === activeSessionId
         ? { ...s, messages: [...s.messages, botMsg], lastUpdated: new Date() }
         : s
       ));
+      setTypingMessageId(botMsgId);
 
     } catch (err) {
+      const errorBotMsgId = generateUniqueId('error');
       const errorBotMsg = {
-        id: generateUniqueId('error'),
+        id: errorBotMsgId,
         text: "Oops! Terjadi kesalahan saat menghubungi server. Silakan coba lagi.",
         sender: "bot",
         timestamp: new Date(),
         followUps: ["Coba lagi", "Ceritakan dengan kata-kata lain", "Bagaimana perasaanmu sekarang?"],
         follow_up_answers: [],
-        recommended_responses_to_follow_up_answers: []
+        recommended_responses_to_follow_up_answers: [],
+        isTyping: true
       };
       setChatSessions(prev => prev.map(s => s.id === activeSessionId
         ? { ...s, messages: [...s.messages, errorBotMsg], lastUpdated: new Date() }
         : s
       ));
+      setTypingMessageId(errorBotMsgId);
     } finally {
       setIsBotTyping(false);
       setAbortController(null);
@@ -341,8 +398,16 @@ const ChatbotPage = () => {
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 p-4">
+          <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+            <button
+              onClick={handleHomeClick}
+              className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Home size={20} className="text-gray-600" />
+              <span className="text-sm text-gray-600">Home</span>
+            </button>
             <h1 className="text-lg font-semibold text-gray-800">Mindfulness</h1>
+            <div className="w-16"></div> {/* Spacer for centering */}
           </div>
 
           {/* Messages */}
@@ -361,13 +426,21 @@ const ChatbotPage = () => {
                       ? 'bg-blue-500 text-white ml-auto' 
                       : 'bg-white border border-gray-200'
                   }`}>
-                    <ReactMarkdown className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {msg.text}
-                    </ReactMarkdown>
+                    {msg.sender === 'bot' && msg.isTyping && typingMessageId === msg.id ? (
+                      <TypingText 
+                        text={msg.text} 
+                        speed={30} 
+                        onComplete={() => handleTypingComplete(msg.id)}
+                      />
+                    ) : (
+                      <ReactMarkdown className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {msg.text}
+                      </ReactMarkdown>
+                    )}
                   </div>
 
-                  {/* Follow-up Questions */}
-                  {msg.followUps?.length > 0 && (
+                  {/* Follow-up Questions - Only show after typing is complete */}
+                  {msg.followUps?.length > 0 && (!msg.isTyping || typingMessageId !== msg.id) && (
                     <div className="mt-3 space-y-2">
                       {msg.followUps.map((question, i) => (
                         <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-3">

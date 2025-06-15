@@ -213,54 +213,44 @@ const ChatbotPage = () => {
   }, []);
 
   // Parse api response
-  const parseApiResponse = (apiResponse) => {
+  // ---
+// Ganti fungsi parseApiResponse menjadi seperti ini:
+const parseApiResponse = (apiResponse) => {
   console.log('Raw API Response:', apiResponse);
 
-  // Jika response dari backend (ada .success dan .data)
-  if (apiResponse && apiResponse.success && apiResponse.data) {
-    // Data dari backend Mindfulness, masuk ke dalam .data
+  // Handle response dari backend Mindfulness (punya .success dan .data)
+  if (apiResponse && typeof apiResponse === 'object' && 'success' in apiResponse && 'data' in apiResponse) {
     return parseApiResponse(apiResponse.data);
   }
 
-  // Struktur Python service (langsung object jawaban)
-  let result = null;
-
-  // Cek jika array results
-  if (Array.isArray(apiResponse.results) && apiResponse.results.length > 0) {
-    result = apiResponse.results[0];
-  } else if (apiResponse.result) {
-    result = apiResponse.result;
-  } else if (apiResponse.response_to_display) {
-    result = apiResponse;
-  } else if (
-    apiResponse &&
-    (apiResponse.confidence_score !== undefined ||
-      apiResponse.intent ||
-      apiResponse.follow_up_questions)
-  ) {
-    result = apiResponse;
+  // Handle response dari backend Python (langsung object jawaban)
+  if (apiResponse && typeof apiResponse === 'object') {
+    // Format normal yang diharapkan
+    if (typeof apiResponse.response_to_display === 'string') {
+      return {
+        response_to_display: apiResponse.response_to_display.trim(),
+        follow_up_questions: apiResponse.follow_up_questions || [],
+        follow_up_answers: apiResponse.follow_up_answers || [],
+        recommended_responses_to_follow_up_answers: apiResponse.recomended_responses_to_follow_up_answers || apiResponse.recommended_responses_to_follow_up_answers || [],
+        confidence_score: apiResponse.confidence_score || 0,
+        intent: apiResponse.intent || 'unknown'
+      };
+    }
+    // Cek jika ada array 'results' (misal AI service berubah format)
+    if (Array.isArray(apiResponse.results) && apiResponse.results.length > 0) {
+      return parseApiResponse(apiResponse.results[0]);
+    }
+    // Cek jika ada object 'result'
+    if (apiResponse.result) {
+      return parseApiResponse(apiResponse.result);
+    }
   }
 
-  if (!result) {
-    console.error('Unable to parse API response structure:', apiResponse);
-    throw new Error('Invalid API response format');
-  }
-
-  if (!result.response_to_display) {
-    console.error('Missing response_to_display in result:', result);
-    throw new Error('Empty or missing response from API');
-  }
-
-  return {
-    response_to_display: result.response_to_display.trim(),
-    follow_up_questions: result.follow_up_questions || [],
-    follow_up_answers: result.follow_up_answers || [],
-    recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || result.recommended_responses_to_follow_up_answers || [],
-    confidence_score: result.confidence_score || 0,
-    intent: result.intent || 'unknown'
-  };
+  // Jika sampai sini tidak ditemukan format yang benar:
+  console.error('Unable to parse API response structure:', apiResponse);
+  throw new Error('Format respons API tidak valid');
 };
-
+  
   // IMPROVED API HANDLING with better error handling
   const handleSendMessage = async (messageText = null) => {
     const text = (messageText || message).trim();

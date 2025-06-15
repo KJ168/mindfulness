@@ -44,14 +44,12 @@ class ChatErrorBoundary extends React.Component {
   }
 }
 
-// Typing Animation Component - Fixed to prevent looping
 const TypingText = ({ text, speed = 50, onComplete }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
-    // Reset when text changes
     setDisplayedText('');
     setCurrentIndex(0);
     setIsCompleted(false);
@@ -147,7 +145,6 @@ const ChatbotPage = () => {
     navigate('/home');
   };
 
-  // Initialize chat sessions only once
   useEffect(() => {
     if (isInitialized) return;
     
@@ -170,21 +167,18 @@ const ChatbotPage = () => {
     setIsInitialized(true);
   }, [isInitialized, handleNewChat]);
 
-  // Save to localStorage when chatSessions change
   useEffect(() => {
     if (isInitialized && chatSessions.length > 0) {
       localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(chatSessions));
     }
   }, [chatSessions, isInitialized]);
 
-  // Auto scroll to bottom when new messages are added
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatSessions, isBotTyping]);
 
-  // Handle emoji picker outside clicks
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -218,6 +212,7 @@ const ChatbotPage = () => {
     })));
   }, []);
 
+  // IMPROVED API HANDLING
   const handleSendMessage = async (messageText = null) => {
     const text = (messageText || message).trim();
     if (!text || !activeSessionId) return;
@@ -263,13 +258,31 @@ const ChatbotPage = () => {
     setAbortController(controller);
 
     try {
+      console.log('Sending message to API:', text);
+      
       const data = await sendToMindfulness(text, { signal: controller.signal });
+      
+      console.log('API Response received:', data);
 
-      if (!data || !data.results || data.results.length === 0) {
+      // BETTER ERROR HANDLING FOR API RESPONSE
+      if (!data) {
+        throw new Error('No response from API');
+      }
+
+      // Handle different response structures
+      let result;
+      if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+        result = data.results[0];
+      } else if (data.result) {
+        result = data.result;
+      } else if (data.response_to_display) {
+        result = data;
+      } else {
+        console.error('Unexpected API response structure:', data);
         throw new Error('Invalid API response structure');
       }
 
-      const result = data.results[0];
+      console.log('Processed result:', result);
 
       if (!result.response_to_display || result.response_to_display.trim() === '') {
         throw new Error('Empty response from API');
@@ -283,11 +296,13 @@ const ChatbotPage = () => {
         timestamp: new Date(),
         followUps: result.follow_up_questions || [],
         follow_up_answers: result.follow_up_answers || [],
-        recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || [],
+        recommended_responses_to_follow_up_answers: result.recomended_responses_to_follow_up_answers || result.recommended_responses_to_follow_up_answers || [],
         confidence: result.confidence_score || 0,
         intent: result.intent || '',
         isTyping: true
       };
+
+      console.log('Bot message created:', botMsg);
 
       setChatSessions(prev => prev.map(s => s.id === activeSessionId
         ? { ...s, messages: [...s.messages, botMsg], lastUpdated: new Date() }
@@ -296,10 +311,12 @@ const ChatbotPage = () => {
       setTypingMessageId(botMsgId);
 
     } catch (err) {
+      console.error('API Error:', err);
+      
       const errorBotMsgId = generateUniqueId('error');
       const errorBotMsg = {
         id: errorBotMsgId,
-        text: "Oops! Terjadi kesalahan saat menghubungi server. Silakan coba lagi.",
+        text: `Oops! Terjadi kesalahan saat menghubungi server. ${err.message}. Silakan coba lagi.`,
         sender: "bot",
         timestamp: new Date(),
         followUps: ["Coba lagi", "Ceritakan dengan kata-kata lain", "Bagaimana perasaanmu sekarang?"],
@@ -346,7 +363,6 @@ const ChatbotPage = () => {
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar */}
         <div className={`${sidebarOpen ? 'w-80' : 'w-16'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300`}>
-          {/* Header */}
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -357,7 +373,6 @@ const ChatbotPage = () => {
             {sidebarOpen && <h1 className="text-lg font-semibold text-gray-800">Mindfulness</h1>}
           </div>
 
-          {/* New Chat Button */}
           <div className="p-4">
             <button
               onClick={handleNewChat}
@@ -368,7 +383,6 @@ const ChatbotPage = () => {
             </button>
           </div>
 
-          {/* Chat History */}
           <div className="flex-1 overflow-y-auto px-4">
             {sidebarOpen && (
               <div className="space-y-2">
@@ -402,7 +416,6 @@ const ChatbotPage = () => {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
-          {/* Header */}
           <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
             <button
               onClick={handleHomeClick}
@@ -413,7 +426,6 @@ const ChatbotPage = () => {
             <div className="w-16"></div> 
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {activeSession?.messages.map((msg, index) => (
               <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -442,7 +454,6 @@ const ChatbotPage = () => {
                     )}
                   </div>
 
-                  {/* Follow-up Questions - Tampilkan dan sembunyikan tombol kirim hanya setelah input selesai */}
                   {msg.followUps?.length > 0 && (!msg.isTyping || typingMessageId !== msg.id) && (
                     <div className="mt-3 space-y-2">
                       {msg.followUps.map((question, i) => (
@@ -464,8 +475,6 @@ const ChatbotPage = () => {
                               </p>
                             </div>
                           )}
-                          
-                          {/* Removed the "Kirim pertanyaan ini" */}
                         </div>
                       ))}
                     </div>
@@ -503,7 +512,6 @@ const ChatbotPage = () => {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Input Area */}
           <div className="bg-white border-t border-gray-200 p-4">
             <div className="flex items-center gap-3 bg-gray-50 rounded-full px-4 py-2 border border-gray-200">
               <input
@@ -534,7 +542,6 @@ const ChatbotPage = () => {
               </button>
             </div>
 
-            {/* Emoji Picker */}
             {showEmojiPicker && (
               <div 
                 ref={emojiPickerPopupRef} 
@@ -559,5 +566,7 @@ const ChatbotPage = () => {
     </ChatErrorBoundary>
   );
 };
+
+export default ChatbotPage;
 
 export default ChatbotPage;
